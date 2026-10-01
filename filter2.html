@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Promotion Query Tool</title>
+    <!-- เช็คสิทธิ์การเข้าสู่ระบบก่อนโหลดหน้าเว็บ -->
+    <script>
+        if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'index.html';
+        }
+    </script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (XLSX) Library CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        :root {
+            --col-shop-width: 110px;
+            --col-product-width: 150px;
+            --col-nameth-width: 140px;
+            --col-mechanic-width: 110px;
+        }
+
+        .frozen-col {
+            position: sticky;
+            z-index: 20;
+            background-color: #ffffff;
+        }
+
+        th.frozen-col {
+            position: sticky;
+            top: 0;
+            z-index: 40 !important;
+            background-color: #f1f5f9 !important;
+        }
+
+        th.frozen-col-accent {
+            position: sticky;
+            top: 0;
+            z-index: 40 !important;
+            background-color: #e0e7ff !important;
+        }
+
+        .col-freeze-1 {
+            left: 0px;
+            width: var(--col-shop-width);
+            min-width: var(--col-shop-width);
+            max-width: var(--col-shop-width);
+        }
+        .col-freeze-2 {
+            left: var(--col-shop-width);
+            width: var(--col-product-width);
+            min-width: var(--col-product-width);
+            max-width: var(--col-product-width);
+        }
+        .col-freeze-3 {
+            left: calc(var(--col-shop-width) + var(--col-product-width));
+            width: var(--col-nameth-width);
+            min-width: var(--col-nameth-width);
+        }
+        .col-freeze-4 {
+            left: calc(var(--col-shop-width) + var(--col-product-width) + var(--col-nameth-width));
+            width: var(--col-mechanic-width);
+            min-width: var(--col-mechanic-width);
+            box-shadow: 4px 0 8px -2px rgba(15, 23, 42, 0.08);
+        }
+
+        .bg-row-even {
+            background-color: #ffffff !important;
+        }
+        .bg-row-odd {
+            background-color: #f8fafc !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen font-sans flex flex-col">
+
+    <!-- Navigation / Header -->
+    <header class="bg-slate-900 text-white shadow-md border-b border-slate-800">
+        <div class="w-full px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 rounded-lg text-white">
+                    <i class="fa-solid fa-store text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Product Promotion Query Tool</h1>
+                    <p class="text-xs text-slate-400" id="userInfoDisplay">Welcome</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    System Ready
+                </span>
+                <button onclick="logout()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Step 1: File Source & Control Panel (Admin Only) -->
+        <section id="uploaderSection" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" style="display: none;">
+            <div class="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel text-emerald-600"></i> Data Source Configuration (Admin Only)
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Upload your promotion dataset (.xlsx, .xls, .csv) to sync with promotion_database</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="exportCsvBtn" onclick="exportToCSV()" class="px-3.5 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-file-export"></i> Export Results (.csv)
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-5">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+                    <div class="lg:col-span-2">
+                        <label for="fileInput" class="relative flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50/30 transition-all group">
+                            <div class="flex flex-col items-center justify-center pt-3 pb-3">
+                                <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 group-hover:text-indigo-600 mb-1 transition-colors"></i>
+                                <p class="text-xs text-slate-600 font-medium">Click to upload or drag & drop</p>
+                                <p class="text-[11px] text-slate-400 mt-0.5">Supports .XLSX, .XLS, or .CSV</p>
+                            </div>
+                            <input id="fileInput" type="file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleFileUpload(event)" />
+                        </label>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-center h-28">
+                        <div class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Source Status</div>
+                        <div id="statusMessage" class="text-sm font-semibold text-slate-700 truncate">No file loaded yet</div>
+                        <div id="statusDetail" class="text-xs text-slate-400 mt-1">Please select a file to sync</div>
+                        <div id="uploadTimeDisplay" class="text-[11px] font-medium text-indigo-600 mt-1 hidden"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- สำหรับ User ทั่วไป -->
+        <section id="userStatusSection" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4" style="display: none;">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                    <div class="text-xs text-slate-500 font-medium uppercase tracking-wider">DATASET STATUS</div>
+                    <div id="userStatusMessage" class="text-sm font-semibold text-indigo-600">กำลังซิงค์ข้อมูลจาก promotion_database...</div>
+                </div>
+                <div id="userUploadTimeDisplay" class="text-xs font-medium text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
+                    อัปโหลดล่าสุด: -
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2: Query Filter Controls -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+                <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-indigo-600"></i> Filter & Query Conditions
+                </h2>
+                <button onclick="resetFilters()" class="text-xs text-slate-500 hover:text-rose-600 transition-colors flex items-center gap-1 font-medium">
+                    <i class="fa-solid fa-rotate-left"></i> Reset All Filters
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-semibold text-slate-700">
+                        Query Date & Time (Live Period Check)
+                    </label>
+                    <input type="datetime-local" id="filterDateTime" oninput="applyFilters()" class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800">
+                    
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                        <button type="button" onclick="setPresetDateTime('now')" class="px-2 py-1 text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors">
+                            Current Time
+                        </button>
+                        <button type="button" onclick="clearDateTime()" class="px-2 py-1 text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors">
+                            Clear Date
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-semibold text-slate-700">
+                        Shop Name <span class="text-slate-400 font-normal">(Partial Match)</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-store text-xs"></i>
+                        </span>
+                        <input type="text" id="filterShopName" placeholder="e.g. ร้านบุ๊ค" oninput="applyFilters()" class="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 placeholder:text-slate-400">
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-semibold text-slate-700">
+                        Product Name / ID <span class="text-slate-400 font-normal">(Partial Match)</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-box text-xs"></i>
+                        </span>
+                        <input type="text" id="filterProductName" placeholder="e.g. Red Knuckle" oninput="applyFilters()" class="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 placeholder:text-slate-400">
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-semibold text-slate-700">
+                        Name TH <span class="text-slate-400 font-normal">(Promotion Name)</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-bullhorn text-xs"></i>
+                        </span>
+                        <select id="filterNameTH" onchange="applyFilters()" class="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800">
+                            <option value="">-- All Name TH --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-semibold text-slate-700">
+                        Mechanic Type <span class="text-slate-400 font-normal">(Promotion Logic)</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-gear text-xs"></i>
+                        </span>
+                        <select id="filterMechanicType" onchange="applyFilters()" class="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800">
+                            <option value="">-- All Mechanic Types --</option>
+                            <option value="price_off">price_off</option>
+                            <option value="flash_sale">flash_sale</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-xs text-slate-500 font-medium">Matched Products</div>
+                <div id="statTotalMatched" class="text-2xl font-bold text-slate-900 mt-1">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-xs text-slate-500 font-medium">Available Stock Sum</div>
+                <div id="statTotalStock" class="text-2xl font-bold text-slate-900 mt-1">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-xs text-slate-500 font-medium">Promotion Stock Sum</div>
+                <div id="statTotalPromoStock" class="text-2xl font-bold text-emerald-600 mt-1">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-xs text-slate-500 font-medium">Active Status Filter</div>
+                <div id="statActivePeriod" class="text-xs font-semibold text-indigo-600 mt-2 truncate">All Live Periods</div>
+            </div>
+        </div>
+
+        <!-- Step 3: Table View -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full">
+            <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50/50">
+                <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-table text-indigo-600"></i> Queried Product Promotions
+                </h2>
+                <div class="text-xs text-slate-500">
+                    Showing <span id="tableCount" class="font-bold text-slate-800">0</span> unique product(s)
+                </div>
+            </div>
+
+            <div class="overflow-x-auto max-h-[600px] relative w-full">
+                <table class="w-full text-left border-collapse text-[11px] whitespace-nowrap">
+                    <thead class="bg-slate-100 text-slate-700 sticky top-0 z-30 font-semibold uppercase tracking-wider text-center">
+                        <tr>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 frozen-col col-freeze-1 text-left">Shop Name</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 frozen-col col-freeze-2 text-left">Product Name</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 frozen-col-accent col-freeze-3 text-indigo-900 text-left">Name TH</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 frozen-col-accent col-freeze-4 text-indigo-900 text-left">Mechanic Type</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 text-right bg-slate-100">Original Price</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 text-right bg-slate-100">Seller Offer</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 text-right bg-slate-100">Discount (%)</th>
+                            <th colspan="3" class="py-1 px-2 border-b border-r border-slate-200 text-center text-slate-700 bg-slate-200/70">Rebate</th>
+                            <th colspan="3" class="py-1 px-2 border-b border-r border-slate-200 text-center text-slate-700 bg-slate-200/70">Final Price (THB)</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 text-right bg-slate-100">Available Stock</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-r border-slate-200 text-right font-bold text-emerald-700 bg-slate-100">Promo Stock</th>
+                            <th rowspan="2" class="py-2.5 px-2 border-b border-slate-200 text-left font-bold text-indigo-700 bg-indigo-50">Campaign ID</th>
+                        </tr>
+                        <tr>
+                            <th class="py-2 px-2 border-b border-r border-slate-200 text-right font-bold text-blue-700 bg-blue-50/50">Amaze</th>
+                            <th class="py-2 px-2 border-b border-r border-slate-200 text-right font-bold text-emerald-700 bg-emerald-50/50">Axtra</th>
+                            <th class="py-2 px-2 border-b border-r border-slate-200 text-right font-bold text-orange-600 bg-orange-50/50">SHOPPLUS</th>
+                            <th class="py-2 px-2 border-b border-r border-slate-200 text-right font-bold text-blue-800 bg-blue-50/50">Amaze</th>
+                            <th class="py-2 px-2 border-b border-r border-slate-200 text-right font-bold text-emerald-800 bg-emerald-50/50">Axtra</th>
+                            <th class="py-2 px-2 border-b border-r border-slate-200 text-right font-bold text-orange-700 bg-orange-50/50">SHOPPLUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="divide-y divide-slate-200 bg-white">
+                        <tr>
+                            <td colspan="16" class="text-center py-12 text-slate-400">
+                                <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+                                กำลังรอข้อมูลจากระบบ...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto w-full">
+        <div class="w-full px-6 text-center text-xs text-slate-400">
+            Welcome &bull; Product Promotion QA & Stock Query Tool &bull; Full Frozen Headers Active
+        </div>
+    </footer>
+
+    <script>
+        // *** โปรดระบุ Google Apps Script Web App URL ที่ Deploy เป็น "Anyone" ตรงนี้ ***
+        const API_URL = "https://script.google.com/macros/s/AKfycbzBhLqP6GCgk26ZLP49jyo3kc15eR-WLit79JqEfy2sZSYEbRa7r9iYQKLdM5ScwqG-_w/exec";
+
+        window.onload = function() {
+            const userEmail = sessionStorage.getItem('userEmail');
+            if (userEmail) {
+                document.getElementById('userInfoDisplay').innerText = `Welcome: ${userEmail}`;
+                
+                if (userEmail.trim().toLowerCase() === 'arisa.thu@ascendcorp.com') {
+                    document.getElementById('uploaderSection').style.display = 'block';
+                    document.getElementById('userStatusSection').style.display = 'none';
+                } else {
+                    document.getElementById('uploaderSection').style.display = 'none';
+                    document.getElementById('userStatusSection').style.display = 'block';
+                }
+            }
+            loadDataFromCloud();
+        };
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        let rawDataStore = [];
+        let filteredDataStore = [];
+
+        // ฟังก์ชันดึงข้อมูลจาก Cloud (รองรับทั้ง Fetch และ JSONP)
+        async function loadDataFromCloud() {
+            const userMsgEl = document.getElementById("userStatusMessage");
+            if (userMsgEl) {
+                userMsgEl.textContent = "กำลังซิงค์ข้อมูลจาก promotion_database...";
+                userMsgEl.className = "text-sm font-semibold text-indigo-600";
+            }
+
+            // 1. ลองดึงข้อมูลด้วย fetch ปกติก่อน
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                if (data && Array.isArray(data)) {
+                    processCloudData(data);
+                    return;
+                }
+            } catch (err) {
+                console.log("Fetch failed, falling back to JSONP...");
+            }
+
+            // 2. หาก fetch ไม่ผ่าน ให้สลับมาใช้ JSONP Fallback ป้องกัน CORS
+            const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+                if (script.parentNode) {
+                    document.body.removeChild(script);
+                }
+                processCloudData(data);
+            };
+
+            const script = document.createElement('script');
+            script.src = `${API_URL}?callback=${callbackName}`;
+            script.onerror = function() {
+                updateStatus("เกิดข้อผิดพลาดในการซิงค์ข้อมูล", "ไม่สามารถเชื่อมต่อฐานข้อมูลกลางได้", "text-rose-600");
+                if (userMsgEl) {
+                    userMsgEl.textContent = "เกิดข้อผิดพลาดในการเชื่อมต่อ promotion_database";
+                    userMsgEl.className = "text-sm font-semibold text-rose-600";
+                }
+            };
+            document.body.appendChild(script);
+        }
+
+        function processCloudData(data) {
+            if (data && data.length > 0) {
+                rawDataStore = normalizeImportedData(data);
+                populateDropdownOptions(rawDataStore);
+                
+                const successText = `เชื่อมต่อข้อมูลสำเร็จ (${data.length.toLocaleString()} รายการจาก promotion_database)`;
+                updateStatus(successText, "ซิงค์ข้อมูลเรียบร้อยแล้ว", "text-emerald-600");
+                
+                const userMsg = document.getElementById("userStatusMessage");
+                if (userMsg) {
+                    userMsg.textContent = successText;
+                    userMsg.className = "text-sm font-semibold text-emerald-600";
+                }
+
+                const nowStr = new Date().toLocaleString('th-TH');
+                updateUploadTimeDisplay(nowStr);
+
+                applyFilters();
+            } else {
+                updateStatus("ยังไม่มีข้อมูลใน promotion_database", "กรุณารอ Admin อัปโหลดข้อมูล", "text-amber-600");
+                const userMsg = document.getElementById("userStatusMessage");
+                if (userMsg) {
+                    userMsg.textContent = "ยังไม่มีข้อมูลใน promotion_database";
+                    userMsg.className = "text-sm font-semibold text-amber-600";
+                }
+            }
+        }
+
+        // สำหรับ Admin เมื่ออัปโหลดไฟล์ขึ้น Cloud
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                    if (json.length === 0) {
+                        updateStatus("Uploaded file is empty!", "No rows found", "text-rose-600");
+                        return;
+                    }
+
+                    updateStatus("กำลังอัปโหลดข้อมูลขึ้น promotion_database...", "โปรดรอสักครู่", "text-indigo-600");
+
+                    await fetch(API_URL, {
+                        method: "POST",
+                        body: JSON.stringify(json)
+                    });
+
+                    updateStatus("อัปโหลดสำเร็จ", "บันทึกข้อมูลลง promotion_database เรียบร้อย", "text-emerald-600");
+                    
+                    const nowStr = new Date().toLocaleString('th-TH');
+                    updateUploadTimeDisplay(nowStr);
+
+                    setTimeout(() => {
+                        loadDataFromCloud();
+                    }, 1500);
+
+                } catch (err) {
+                    console.error(err);
+                    updateStatus("Error parsing file!", "Please upload a valid Excel or CSV file", "text-rose-600");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function updateUploadTimeDisplay(timeStr) {
+            const timeEl1 = document.getElementById("uploadTimeDisplay");
+            const timeEl2 = document.getElementById("userUploadTimeDisplay");
+
+            if (timeEl1) {
+                timeEl1.textContent = `อัปโหลดล่าสุด: ${timeStr}`;
+                timeEl1.classList.remove("hidden");
+            }
+            if (timeEl2) {
+                timeEl2.textContent = `อัปโหลดล่าสุด: ${timeStr}`;
+            }
+        }
+
+        function populateDropdownOptions(data) {
+            const nameTHSet = new Set();
+            data.forEach(item => {
+                if (item["Name TH"]) nameTHSet.add(String(item["Name TH"]).trim());
+            });
+
+            const selectNameTH = document.getElementById("filterNameTH");
+            selectNameTH.innerHTML = '<option value="">-- All Name TH --</option>';
+            Array.from(nameTHSet).sort().forEach(val => {
+                selectNameTH.innerHTML += `<option value="${escapeHtml(val)}">${escapeHtml(val)}</option>`;
+            });
+        }
+
+        function normalizeImportedData(data) {
+            return data.map(item => {
+                const getVal = (possibleKeys, defaultVal = "") => {
+                    for (let k of possibleKeys) {
+                        if (item[k] !== undefined && item[k] !== "") return item[k];
+                    }
+                    return defaultVal;
+                };
+
+                return {
+                    "Sub Session ID": getVal(["Sub Session ID", "Sub Session", "sub_session_id"]),
+                    "Name TH": getVal(["Name TH", "name_th", "NameTh", "Promotion Name"]),
+                    "Mechanic Type": getVal(["Mechanic Type", "mechanic_type", "MechanicType", "Mechanic"]),
+                    "Live Period": getVal(["Live Period", "live_period", "Period"]),
+                    "Seller Amaze ID": getVal(["Seller Amaze ID", "Seller Amaze", "seller_amaze_id", "Seller ID"]),
+                    "Shop Name": getVal(["Shop Name", "Shop", "shop_name", "ShopName"]),
+                    "Product Amaze ID": getVal(["Product Amaze ID", "Product ID", "Variant ID", "id"]),
+                    "Variant ID": getVal(["Variant ID", "variant_id"]),
+                    "Product Name": getVal(["Product Name", "product_name", "Product"]),
+                    "Original Price": parseFloat(getVal(["Original Price", "original_price"], 0)) || 0,
+                    "Seller Offer Price": parseFloat(getVal(["Seller Offer Price", "offer_price"], 0)) || 0,
+                    "Discount (%)": parseFloat(getVal(["Discount (%)", "Discount", "discount"], 0)) || 0,
+                    "Amaze Rebate Amount (THB)": parseFloat(getVal(["Amaze Rebate Amount (THB)", "Amaze Rebate Amount", "Amaze Rebate"], 0)) || 0,
+                    "Axtra Rebate Amount (THB)": parseFloat(getVal(["Axtra Rebate Amount (THB)", "Axtra Rebate Amount", "Axtra Rebate"], 0)) || 0,
+                    "SHOPPLUS Rebate (THB)": parseFloat(getVal(["SHOPPLUS Rebate (THB)", "SHOPPLUS Rebate", "Shopplus Rebate"], 0)) || 0,
+                    "Amaze Final Price (THB)": parseFloat(getVal(["Amaze Final Price (THB)", "Amaze Final Price"], 0)) || 0,
+                    "Axtra Final Price (THB)": parseFloat(getVal(["Axtra Final Price (THB)", "Axtra Final Price"], 0)) || 0,
+                    "SHOPPLUS Final Price (THB)": parseFloat(getVal(["SHOPPLUS Final Price (THB)", "SHOPPLUS Final Price"], 0)) || 0,
+                    "Available Stock": parseInt(getVal(["Available Stock", "available_stock"], 0)) || 0,
+                    "Promotion Stock": parseInt(getVal(["Promotion Stock", "promotion_stock"], 0)) || 0,
+                    "Status": getVal(["Status", "status"])
+                };
+            });
+        }
+
+        function generateCampaignID(item) {
+            const mechanic = String(item["Mechanic Type"] || "").trim().toLowerCase();
+            let prefix = "TBPO";
+            if (mechanic === "flash_sale") {
+                prefix = "TBFS";
+            } else if (mechanic === "price_off") {
+                prefix = "TBPO";
+            }
+            const subSession = String(item["Sub Session ID"] || "").trim();
+            const sellerAmaze = String(item["Seller Amaze ID"] || "").trim();
+            return `${prefix}_${subSession}_${sellerAmaze}`;
+        }
+
+        function parseDateTime(dtStr) {
+            if (!dtStr) return null;
+            try {
+                const parts = dtStr.trim().split(" ");
+                if (parts.length < 2) return null;
+                const dateParts = parts[0].includes("/") ? parts[0].split("/") : parts[0].split("-");
+                const timeParts = parts[1].split(":");
+                let day, month, year;
+                if (parts[0].includes("/")) {
+                    day = parseInt(dateParts[0], 10);
+                    month = parseInt(dateParts[1], 10) - 1;
+                    year = parseInt(dateParts[2], 10);
+                } else {
+                    year = parseInt(dateParts[0], 10);
+                    month = parseInt(dateParts[1], 10) - 1;
+                    day = parseInt(dateParts[2], 10);
+                }
+                const hours = parseInt(timeParts[0], 10) || 0;
+                const minutes = parseInt(timeParts[1], 10) || 0;
+                const seconds = parseInt(timeParts[2], 10) || 0;
+                return new Date(year, month, day, hours, minutes, seconds);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function isWithinLivePeriod(livePeriodStr, targetDate) {
+            if (!livePeriodStr || !targetDate) return true;
+            const periods = livePeriodStr.split("-");
+            if (periods.length !== 2) return true;
+            const startDate = parseDateTime(periods[0]);
+            const endDate = parseDateTime(periods[1]);
+            if (!startDate || !endDate) return true;
+            return targetDate >= startDate && targetDate <= endDate;
+        }
+
+        function setPresetDateTime(preset) {
+            const input = document.getElementById("filterDateTime");
+            if (preset === 'now') {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                input.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+            applyFilters();
+        }
+
+        function clearDateTime() {
+            document.getElementById("filterDateTime").value = "";
+            applyFilters();
+        }
+
+        function resetFilters() {
+            document.getElementById("filterDateTime").value = "";
+            document.getElementById("filterShopName").value = "";
+            document.getElementById("filterProductName").value = "";
+            document.getElementById("filterNameTH").value = "";
+            document.getElementById("filterMechanicType").value = "";
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const dtInput = document.getElementById("filterDateTime").value;
+            const shopQuery = document.getElementById("filterShopName").value.trim().toLowerCase();
+            const productQuery = document.getElementById("filterProductName").value.trim().toLowerCase();
+            const selectedNameTH = document.getElementById("filterNameTH").value;
+            const selectedMechanicType = document.getElementById("filterMechanicType").value;
+
+            const targetDate = dtInput ? new Date(dtInput) : null;
+
+            filteredDataStore = rawDataStore.filter(item => {
+                if (targetDate && !isWithinLivePeriod(item["Live Period"], targetDate)) return false;
+                if (shopQuery && !String(item["Shop Name"] || "").toLowerCase().includes(shopQuery)) return false;
+                if (productQuery) {
+                    const nameMatch = String(item["Product Name"] || "").toLowerCase().includes(productQuery);
+                    const idMatch = String(item["Product Amaze ID"] || "").toLowerCase().includes(productQuery);
+                    if (!nameMatch && !idMatch) return false;
+                }
+                if (selectedNameTH && String(item["Name TH"] || "").trim() !== selectedNameTH) return false;
+                if (selectedMechanicType && String(item["Mechanic Type"] || "").trim() !== selectedMechanicType) return false;
+                return true;
+            });
+
+            const groupedProducts = groupDataByProduct(filteredDataStore);
+            renderTable(groupedProducts);
+            updateSummaryStats(filteredDataStore, targetDate);
+        }
+
+        function groupDataByProduct(items) {
+            const groups = {};
+            items.forEach(item => {
+                const key = item["Product Amaze ID"] ? String(item["Product Amaze ID"]).trim() : String(item["Product Name"]).trim();
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(item);
+            });
+            return Object.values(groups);
+        }
+
+        function renderTable(groupedData) {
+            const tbody = document.getElementById("resultsTableBody");
+            document.getElementById("tableCount").textContent = groupedData.length;
+            const exportBtn = document.getElementById("exportCsvBtn");
+            if (exportBtn) exportBtn.disabled = groupedData.length === 0;
+
+            if (groupedData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="16" class="text-center py-12 text-slate-400">
+                            <i class="fa-solid fa-magnifying-glass text-2xl mb-2 block"></i>
+                            No products matched your specified query filters
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const formatNum = (num) => typeof num === 'number' ? num.toLocaleString() : num;
+            const formatCurrency = (num) => typeof num === 'number' ? num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : num;
+
+            let html = '';
+            groupedData.forEach((promoList, groupIndex) => {
+                const mainItem = promoList[0];
+                const promoCount = promoList.length;
+                const rowBgClass = groupIndex % 2 === 1 ? 'bg-row-odd' : 'bg-row-even';
+
+                promoList.forEach((row, idx) => {
+                    const isFirstRow = idx === 0;
+                    const campaignIdVal = generateCampaignID(row);
+
+                    html += `<tr class="border-b border-slate-100 hover:bg-slate-100/60 transition-colors">`;
+
+                    if (isFirstRow) {
+                        html += `
+                            <td rowspan="${promoCount}" class="py-2.5 px-2 font-medium text-slate-800 align-top border-r border-slate-100 frozen-col col-freeze-1 ${rowBgClass} truncate" title="${escapeHtml(mainItem["Shop Name"])}">
+                                ${escapeHtml(mainItem["Shop Name"])}
+                            </td>
+                            <td rowspan="${promoCount}" class="py-2.5 px-2 text-slate-700 align-top border-r border-slate-100 frozen-col col-freeze-2 ${rowBgClass}">
+                                <div class="font-semibold text-slate-900 line-clamp-2 break-words whitespace-normal" title="${escapeHtml(mainItem["Product Name"])}">
+                                    ${escapeHtml(mainItem["Product Name"])}
+                                </div>
+                                ${mainItem["Product Amaze ID"] ? `<div class="text-[10px] text-slate-400 truncate mt-0.5">ID: ${escapeHtml(mainItem["Product Amaze ID"])}</div>` : ''}
+                            </td>
+                        `;
+                    }
+
+                    html += `
+                        <td class="py-2 px-2 font-medium text-indigo-900 border-b border-r border-slate-100 frozen-col col-freeze-3 ${rowBgClass}">
+                            ${row["Name TH"] ? escapeHtml(row["Name TH"]) : '<span class="text-slate-300">-</span>'}
+                        </td>
+                        <td class="py-2 px-2 text-slate-600 border-b border-r border-slate-100 frozen-col col-freeze-4 ${rowBgClass}">
+                            ${row["Mechanic Type"] ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-100 text-indigo-800">${escapeHtml(row["Mechanic Type"])}</span>` : '<span class="text-slate-300">-</span>'}
+                        </td>
+                        <td class="py-2 px-2 text-right text-slate-500 line-through border-b border-r border-slate-100">${formatCurrency(row["Original Price"])}</td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-800 border-b border-r border-slate-100">${formatCurrency(row["Seller Offer Price"])}</td>
+                        <td class="py-2 px-2 text-right text-rose-600 font-medium border-b border-r border-slate-100">${row["Discount (%)"]}%</td>
+                        
+                        <td class="py-2 px-2 text-right font-medium text-blue-700 bg-blue-50/20 border-b border-r border-slate-100">${formatCurrency(row["Amaze Rebate Amount (THB)"])}</td>
+                        <td class="py-2 px-2 text-right font-medium text-emerald-700 bg-emerald-50/20 border-b border-r border-slate-100">${formatCurrency(row["Axtra Rebate Amount (THB)"])}</td>
+                        <td class="py-2 px-2 text-right font-medium text-orange-600 bg-orange-50/20 border-b border-r border-slate-100">${formatCurrency(row["SHOPPLUS Rebate (THB)"])}</td>
+                        
+                        <td class="py-2 px-2 text-right font-bold text-blue-800 bg-blue-50/30 border-b border-r border-slate-100">${formatCurrency(row["Amaze Final Price (THB)"])}</td>
+                        <td class="py-2 px-2 text-right font-bold text-emerald-800 bg-emerald-50/30 border-b border-r border-slate-100">${formatCurrency(row["Axtra Final Price (THB)"])}</td>
+                        <td class="py-2 px-2 text-right font-bold text-orange-700 bg-orange-50/30 border-b border-slate-100">${formatCurrency(row["SHOPPLUS Final Price (THB)"])}</td>
+                    `;
+
+                    if (isFirstRow) {
+                        html += `
+                            <td rowspan="${promoCount}" class="py-2.5 px-2 text-right text-slate-600 align-top border-b border-r border-slate-100">${formatNum(mainItem["Available Stock"])}</td>
+                            <td rowspan="${promoCount}" class="py-2.5 px-2 text-right font-bold text-emerald-600 align-top border-b border-r border-slate-100">${formatNum(mainItem["Promotion Stock"])}</td>
+                        `;
+                    }
+
+                    html += `
+                        <td class="py-2 px-2 text-left font-mono font-medium text-indigo-700 bg-indigo-50/50 border-b border-slate-100">
+                            ${escapeHtml(campaignIdVal)}
+                        </td>
+                    `;
+
+                    html += `</tr>`;
+                });
+            });
+            tbody.innerHTML = html;
+        }
+
+        function updateSummaryStats(items, targetDate) {
+            document.getElementById("statTotalMatched").textContent = items.length.toLocaleString();
+            const sumStock = items.reduce((acc, curr) => acc + (parseInt(curr["Available Stock"]) || 0), 0);
+            const sumPromoStock = items.reduce((acc, curr) => acc + (parseInt(curr["Promotion Stock"]) || 0), 0);
+            document.getElementById("statTotalStock").textContent = sumStock.toLocaleString();
+            document.getElementById("statTotalPromoStock").textContent = sumPromoStock.toLocaleString();
+            document.getElementById("statActivePeriod").textContent = targetDate ? `Active at: ${targetDate.toLocaleString()}` : "All Live Periods";
+        }
+
+        function updateStatus(title, detail, textClass = "text-slate-700") {
+            const msgEl = document.getElementById("statusMessage");
+            const detailEl = document.getElementById("statusDetail");
+            if (msgEl && detailEl) {
+                msgEl.textContent = title;
+                msgEl.className = `text-sm font-semibold truncate ${textClass}`;
+                detailEl.textContent = detail;
+            }
+        }
+
+        function exportToCSV() {
+            if (!filteredDataStore || filteredDataStore.length === 0) return;
+            const exportData = filteredDataStore.map(item => ({
+                ...item,
+                "Campaign ID": generateCampaignID(item)
+            }));
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Filtered_Results");
+            XLSX.writeFile(wb, `promotion_query_export_${new Date().toISOString().slice(0,10)}.csv`, { bookType: 'csv' });
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
