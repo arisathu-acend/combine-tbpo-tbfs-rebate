@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Tool</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --input-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --text-color: #f9fafb;
+            --text-muted: #9ca3af;
+            --border-color: #374151;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --input-bg: #374151;
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 32px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1.5rem;
+        }
+
+        p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        input[type="email"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            font-size: 0.95rem;
+        }
+
+        input[type="email"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            width: 100%;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        #loginErrorMsg {
+            color: #ef4444;
+            font-size: 0.85rem;
+            margin-top: 15px;
+            display: none;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <h2>🔒 เข้าสู่ระบบ</h2>
+        <p>กรุณากรอก Email ของคุณเพื่อใช้งาน Tool</p>
+        
+        <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="userEmailInput" placeholder="name@ascendcorp.com" onkeypress="handleKeyPress(event)">
+        </div>
+        
+        <button class="btn" onclick="checkLogin()">เข้าสู่ระบบ</button>
+        
+        <p id="loginErrorMsg">
+            Email นี้ไม่ได้รับอนุญาตให้ใช้งาน<br>
+            กรุณาติดต่อ <a href="mailto:arisa.thu@ascendcorp.com" style="color: var(--primary-color);">arisa.thu@ascendcorp.com</a>
+        </p>
+    </div>
+
+    <script>
+        const WHITELIST_EMAILS = [
+            "arisa.thu@ascendcorp.com",
+            "test@ascendcorp.com"
+        ];
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                checkLogin();
+            }
+        }
+
+        function checkLogin() {
+            const emailInput = document.getElementById('userEmailInput');
+            const email = emailInput.value.trim().toLowerCase();
+            const errorMsg = document.getElementById('loginErrorMsg');
+
+            if (!email || !email.includes('@')) {
+                alert('กรุณากรอก Email ให้ถูกต้อง');
+                return;
+            }
+
+            if (WHITELIST_EMAILS.includes(email)) {
+                sessionStorage.setItem('isLoggedIn', 'true');
+                sessionStorage.setItem('userEmail', email);
+                window.location.href = 'filter2.html'; 
+            } else {
+                errorMsg.style.display = 'block';
+                emailInput.style.borderColor = '#ef4444';
+            }
+        }
+    </script>
+</body>
+</html>
