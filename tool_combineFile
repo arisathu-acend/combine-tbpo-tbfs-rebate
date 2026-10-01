@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV & XLSX Merger Tool</title>
+    <!-- CDN สำหรับอ่านและสร้างไฟล์ Excel/CSV -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success-color: #10b981;
+            --input-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --text-color: #f9fafb;
+            --text-muted: #9ca3af;
+            --border-color: #374151;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --success-color: #059669;
+            --input-bg: #374151;
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border-color);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--primary-color);
+        }
+
+        .state-panel {
+            display: none;
+        }
+
+        .state-panel.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select,
+        input[type="file"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        input[type="file"] {
+            padding: 6px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            margin-right: 10px;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--border-color);
+        }
+
+        .file-row {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            background-color: rgba(0, 0, 0, 0.02);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        [data-theme="dark"] .file-row {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .file-row-label {
+            font-weight: 600;
+            color: var(--primary-color);
+            min-width: 70px;
+        }
+
+        .col-item {
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .col-file {
+            flex: 1.5;
+            min-width: 220px;
+        }
+
+        .status-box {
+            padding: 20px;
+            border-radius: 8px;
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success-color);
+            color: var(--text-color);
+            text-align: center;
+        }
+
+        .actions {
+            margin-top: 24px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        @media (max-width: 900px) {
+            .file-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .col-item, .col-file {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>CSV / XLSX File Merger</h2>
+        <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+    </div>
+
+    <!-- State 1: Input Number of Files -->
+    <div id="state1" class="state-panel active">
+        <div class="form-group">
+            <label for="fileCountInput">จำนวนไฟล์ที่ต้องการรวบรวม (ไฟล์):</label>
+            <input type="number" id="fileCountInput" min="1" max="50" value="2" placeholder="ระบุจำนวนไฟล์...">
+        </div>
+        <div class="actions">
+            <button class="btn" onclick="goToState2()">ตกลง (OK)</button>
+        </div>
+    </div>
+
+    <!-- State 2: Input Metadata & Select Files -->
+    <div id="state2" class="state-panel">
+        <p style="color: var(--text-muted); margin-bottom: 20px;">กรุณากรอกข้อมูลและอัปโหลดไฟล์ให้ครบถ้วนในแต่ละแถว</p>
+        <div id="fileInputsContainer"></div>
+        <div class="actions">
+            <button class="btn btn-secondary" onclick="goToState1()">ย้อนกลับ</button>
+            <button class="btn" onclick="processAndGenerateFile()">รวบรวมไฟล์ และสร้าง Excel</button>
+        </div>
+    </div>
+
+    <!-- State 3: Completion and Download -->
+    <div id="state3" class="state-panel">
+        <div class="status-box">
+            <h3 style="margin-top: 0;">ประมวลผลสำเร็จ!</h3>
+            <p id="outputFileNameDisplay"></p>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">ระบบจะทำการดาวน์โหลดไฟล์โดยอัตโนมัติ หากไม่เริ่มดาวน์โหลด สามารถคลิกปุ่มด้านล่างได้</p>
+            <div style="margin-top: 20px;">
+                <button class="btn" id="manualDownloadBtn">ดาวน์โหลดไฟล์อีกครั้ง</button>
+                <button class="btn btn-secondary" onclick="resetTool()">ทำรายการใหม่</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // System Theme Logic
+    function toggleTheme() {
+        const body = document.body;
+        const btn = document.getElementById('themeToggleBtn');
+        if (body.getAttribute('data-theme') === 'dark') {
+            body.removeAttribute('data-theme');
+            btn.innerHTML = '🌙 Dark Mode';
+        } else {
+            body.setAttribute('data-theme', 'dark');
+            btn.innerHTML = '☀️ Light Mode';
+        }
+    }
+
+    // Navigation State Functions
+    function goToState1() {
+        showState('state1');
+    }
+
+    function goToState2() {
+        const count = parseInt(document.getElementById('fileCountInput').value);
+        if (isNaN(count) || count < 1) {
+            alert('กรุณาระบุจำนวนไฟล์อย่างน้อย 1 ไฟล์');
+            return;
+        }
+
+        const container = document.getElementById('fileInputsContainer');
+        container.innerHTML = '';
+
+        for (let i = 1; i <= count; i++) {
+            const fileRow = document.createElement('div');
+            fileRow.className = 'file-row';
+            fileRow.innerHTML = `
+                <div class="file-row-label">ไฟล์ที่ ${i}</div>
+                <div class="col-item">
+                    <label>Sub Session ID</label>
+                    <input type="text" class="input-sub-session" placeholder="Sub Session ID">
+                </div>
+                <div class="col-item">
+                    <label>Name TH</label>
+                    <input type="text" class="input-name-th" placeholder="Name TH">
+                </div>
+                <div class="col-item">
+                    <label>Mechanic Type</label>
+                    <select class="input-mechanic-type">
+                        <option value="price_off">price_off</option>
+                        <option value="flash_sale">flash_sale</option>
+                    </select>
+                </div>
+                <div class="col-item">
+                    <label>Live Period</label>
+                    <input type="text" class="input-live-period" placeholder="Live Period">
+                </div>
+                <div class="col-file">
+                    <label>อัปโหลดไฟล์ (.csv / .xlsx)</label>
+                    <input type="file" class="input-file" accept=".csv, .xlsx, .xls">
+                </div>
+            `;
+            container.appendChild(fileRow);
+        }
+
+        showState('state2');
+    }
+
+    function showState(stateId) {
+        document.querySelectorAll('.state-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        document.getElementById(stateId).classList.add('active');
+    }
+
+    function resetTool() {
+        document.getElementById('fileCountInput').value = 2;
+        goToState1();
+    }
+
+    // Helper: Formats DateTime (YYYYMMDD_HHMMSS)
+    function getFormattedDateTime() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+    }
+
+    // Helper: Read single file async
+    function parseFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    resolve(json);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    /**
+     * Function ลบ Row ที่ 2 (Index 1) ออกจากไฟล์
+     * @param {Array<Array>} sheetData ข้อมูลแบบ 2D Array ของแต่ละไฟล์
+     * @returns {Array<Array>} ข้อมูลที่ทำการตัด Row 2 ออกแล้ว
+     */
+    function removeRow2FromFile(sheetData) {
+        if (!sheetData || sheetData.length <= 1) return sheetData;
+        
+        // คัดลอก Array เพื่อไม่ให้กระทบข้อมูลเดิม แล้วลบ Row Index 1 (Row ที่ 2) ออก
+        const cleanedData = [...sheetData];
+        cleanedData.splice(1, 1);
+        return cleanedData;
+    }
+
+    // State 3 Processing Logic
+    async function processAndGenerateFile() {
+        const fileRows = document.querySelectorAll('.file-row');
+        const fileDataConfigs = [];
+
+        // Validation
+        for (let i = 0; i < fileRows.length; i++) {
+            const row = fileRows[i];
+            const subSessionId = row.querySelector('.input-sub-session').value.trim();
+            const nameTh = row.querySelector('.input-name-th').value.trim();
+            const mechanicType = row.querySelector('.input-mechanic-type').value;
+            const livePeriod = row.querySelector('.input-live-period').value.trim();
+            const fileInput = row.querySelector('.input-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert(`กรุณาเลือกไฟล์สำหรับ แถวที่ ${i + 1}`);
+                return;
+            }
+
+            fileDataConfigs.push({
+                subSessionId,
+                nameTh,
+                mechanicType,
+                livePeriod,
+                file
+            });
+        }
+
+        try {
+            let combinedRows = [];
+            let originalHeaders = [];
+
+            for (let i = 0; i < fileDataConfigs.length; i++) {
+                const config = fileDataConfigs[i];
+                
+                // 1. อ่านข้อมูลไฟล์ต้นฉบับ
+                const rawSheetData = await parseFile(config.file);
+                if (rawSheetData.length === 0) continue;
+
+                // 2. เรียกใช้ Function ลบ Row 2 ออกจากแต่ละไฟล์ก่อน
+                const cleanedSheetData = removeRow2FromFile(rawSheetData);
+
+                // 3. นำข้อมูลที่ลบ Row 2 แล้วมา Combine
+                
+                // สำหรับไฟล์แรก: นำ Row 1 (Header) มาใส่เป็น Header หลัก
+                if (i === 0) {
+                    originalHeaders = cleanedSheetData[0];
+                    const fullHeaders = [
+                        'Sub Session ID',
+                        'Name TH',
+                        'Mechanic Type',
+                        'Live Period',
+                        ...originalHeaders
+                    ];
+                    combinedRows.push(fullHeaders);
+                }
+
+                // นำ Row ข้อมูล (Index 1 เป็นต้นไป ซึ่งเคยเป็น Row 3+) มาต่อในไฟล์รวม
+                for (let r = 1; r < cleanedSheetData.length; r++) {
+                    const currentRow = cleanedSheetData[r];
+                    if (!currentRow || currentRow.length === 0) continue;
+
+                    const mergedRow = [
+                        config.subSessionId,
+                        config.nameTh,
+                        config.mechanicType,
+                        config.livePeriod,
+                        ...currentRow
+                    ];
+                    combinedRows.push(mergedRow);
+                }
+            }
+
+            // Generate Output Excel File (.xlsx)
+            const newWorksheet = XLSX.utils.aoa_to_sheet(combinedRows);
+            const newWorkbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "MergedData");
+
+            const timestamp = getFormattedDateTime();
+            const filename = `SOT_TBPOTBFS_${timestamp}.xlsx`;
+
+            document.getElementById('outputFileNameDisplay').innerText = `ชื่อไฟล์: ${filename}`;
+            showState('state3');
+
+            const triggerDownload = () => XLSX.writeFile(newWorkbook, filename);
+            triggerDownload();
+
+            document.getElementById('manualDownloadBtn').onclick = triggerDownload;
+
+        } catch (error) {
+            console.error(error);
+            alert('เกิดข้อผิดพลาดในการอ่านหรือรวมไฟล์ กรุณาตรวจสอบรูปแบบไฟล์แล้วลองใหม่อีกครั้ง');
+        }
+    }
+</script>
+
+</body>
+</html>
